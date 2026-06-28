@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<title>Daily Focus — The Ivy Lee Method</title>
+
+<!-- PWA / iPhone home-screen app -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0e1116">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Focus">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<link rel="icon" type="image/png" href="./icon-192.png">
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #171b22;
+    --panel-2: #1e242d;
+    --line: #2a3038;
+    --text: #e8ecf1;
+    --muted: #8b95a3;
+    --accent: #4f9dff;
+    --gold: #f5c451;
+    --green: #43d17a;
+    --done: #5b6470;
+
+    /* Organisation colours */
+    --org-aussie: #2dafe0;   /* Aussie Floats — water blue */
+    --org-mxt: #b76bff;      /* MXTology — neon purple */
+    --org-floral: #ff6fa5;   /* Floral Image — pink */
+    --org-personal: #f5a623; /* Personal — amber */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 70% -10%, #1a2230 0%, var(--bg) 55%);
+    color: var(--text);
+    min-height: 100vh;
+    padding: max(28px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) 80px max(18px, env(safe-area-inset-left));
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Sync status badge */
+  .sync-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--muted);
+    margin-top: 8px; cursor: default;
+  }
+  .sync-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .sync-badge.ok    { color: var(--green); border-color: rgba(67,209,122,.4); }
+  .sync-badge.ok .dot    { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .sync-badge.local { color: var(--gold); border-color: rgba(245,196,81,.35); }
+  .sync-badge.local .dot { background: var(--gold); }
+  .sync-badge.off   { color: #ff8080; border-color: rgba(255,128,128,.35); }
+  .sync-badge.off .dot   { background: #ff8080; }
+
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  header.top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+  header.top h1 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+  }
+  header.top .sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 3px;
+  }
+  .datebox { text-align: right; }
+  .datebox .d { font-size: 15px; font-weight: 600; }
+  .datebox .quote { font-size: 12px; color: var(--muted); font-style: italic; max-width: 260px; margin-top: 2px; }
+
+  /* ===== Pomodoro ===== */
+  .pomodoro {
+    background: linear-gradient(160deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 18px 20px;
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    flex-wrap: wrap;
+  }
+  .timer-ring { position: relative; width: 120px; height: 120px; flex-shrink: 0; }
+  .timer-ring svg { transform: rotate(-90deg); }
+  .timer-ring .time {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+  .timer-ring .time .t { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .timer-ring .time .mode { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-top: 2px; }
+
+  .pomo-body { flex: 1; min-width: 220px; }
+  .pomo-body .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .pomo-body .focus-on { font-size: 16px; font-weight: 600; margin: 4px 0 12px; min-height: 22px; }
+  .pomo-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pomo-controls button {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 9px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: all .15s;
+  }
+  .pomo-controls button:hover { border-color: var(--accent); }
+  .pomo-controls button.primary { background: var(--accent); border-color: var(--accent); color: #06101f; }
+  .pomo-modes { display: flex; gap: 6px; margin-top: 12px; }
+  .pomo-modes button {
+    flex: 1; background: transparent; border: 1px solid var(--line); color: var(--muted);
+    border-radius: 8px; padding: 6px; font-size: 11px; cursor: pointer; font-weight: 600;
+  }
+  .pomo-modes button.active { color: var(--text); border-color: var(--accent); background: rgba(79,157,255,.12); }
+  .pomo-count { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .pomo-count b { color: var(--gold); }
+
+  /* ===== Sections ===== */
+  .section-title {
+    display: flex; align-items: baseline; gap: 10px; margin: 26px 0 12px;
+  }
+  .section-title h2 { font-size: 17px; font-weight: 700; }
+  .section-title .hint { font-size: 12px; color: var(--muted); }
+
+  /* ===== Six tasks ===== */
+  .six { display: flex; flex-direction: column; gap: 8px; }
+  .task {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 12px 14px;
+    transition: background .15s, opacity .15s, border-color .15s;
+  }
+  .task.dragging { opacity: .4; }
+  .task.drop-target { border-color: var(--accent); }
+  .task.locked { opacity: .5; }
+  .task.is-active { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(245,196,81,.35); }
+  .task.completed { opacity: .55; }
+  .task.completed .task-text { text-decoration: line-through; color: var(--done); }
+
+  .rank {
+    width: 30px; height: 30px; flex-shrink: 0;
+    border-radius: 8px; background: var(--panel-2);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: var(--muted);
+    cursor: grab; user-select: none;
+  }
+  .task.is-active .rank { background: var(--gold); color: #1a1305; }
+  .task.completed .rank { background: var(--green); color: #04220f; }
+
+  .check {
+    width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line);
+    flex-shrink: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .check:hover { border-color: var(--green); }
+  .task.completed .check { background: var(--green); border-color: var(--green); }
+  .check svg { opacity: 0; }
+  .task.completed .check svg { opacity: 1; }
+
+  .task-text {
+    flex: 1; font-size: 15px; outline: none; line-height: 1.35;
+    border: none; background: transparent; color: var(--text); font-family: inherit;
+  }
+  .task-text:empty:before { content: attr(data-ph); color: var(--muted); }
+
+  .task-actions { display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+  .task:hover .task-actions { opacity: 1; }
+  .icon-btn {
+    background: transparent; border: none; color: var(--muted); cursor: pointer;
+    padding: 5px; border-radius: 6px; font-size: 12px; line-height: 1;
+  }
+  .icon-btn:hover { background: var(--panel-2); color: var(--text); }
+  .icon-btn.focus-btn:hover { color: var(--gold); }
+
+  .lock-note {
+    font-size: 11px; color: var(--muted); padding: 2px 8px; font-style: italic;
+  }
+
+  /* ===== Master list ===== */
+  .master-controls { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .master-add {
+    flex: 1; min-width: 200px; display: flex; gap: 8px; align-items: center;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px 4px 4px 12px;
+  }
+  .master-add input {
+    flex: 1; background: transparent; border: none; outline: none; color: var(--text);
+    font-size: 14px; font-family: inherit; padding: 8px 0;
+  }
+  .master-add select {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 8px; font-size: 13px; cursor: pointer;
+  }
+  .master-add button {
+    background: var(--accent); color: #06101f; border: none; border-radius: 8px;
+    padding: 8px 14px; font-weight: 700; cursor: pointer; font-size: 14px;
+  }
+
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chip {
+    font-size: 12px; padding: 5px 11px; border-radius: 20px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--panel); color: var(--muted); font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .chip .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .chip.active { color: var(--text); border-color: var(--text); }
+
+  .master { display: flex; flex-direction: column; gap: 6px; }
+  .m-item {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-left-width: 4px; border-radius: 9px; padding: 10px 12px;
+  }
+  .m-item.dragging { opacity: .4; }
+  .m-item.drop-target { border-top-color: var(--accent); box-shadow: 0 -2px 0 var(--accent); }
+  .m-org-tag {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .5px; font-weight: 700;
+    padding: 2px 7px; border-radius: 5px; flex-shrink: 0;
+  }
+  .m-text { flex: 1; font-size: 14px; outline: none; }
+  .m-actions { display: flex; gap: 2px; opacity: 0; transition: opacity .15s; }
+  .m-item:hover .m-actions { opacity: 1; }
+  .m-promote {
+    background: var(--gold); color: #1a1305; border: none; border-radius: 7px;
+    padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap;
+  }
+  .m-promote:disabled { opacity: .35; cursor: not-allowed; }
+
+  .empty { color: var(--muted); font-size: 13px; padding: 16px; text-align: center; font-style: italic; }
+
+  .footer-note {
+    margin-top: 40px; text-align: center; color: var(--muted); font-size: 12px; line-height: 1.6;
+  }
+  .footer-note a { color: var(--accent); text-decoration: none; }
+
+  .toolbar { display: flex; gap: 8px; }
+  .toolbar button {
+    background: var(--panel); border: 1px solid var(--line); color: var(--muted);
+    border-radius: 8px; padding: 7px 12px; font-size: 12px; cursor: pointer; font-weight: 600;
+  }
+  .toolbar button:hover { color: var(--text); border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <h1>🎯 Daily Focus</h1>
+      <div class="sub">The Ivy Lee Method · six tasks, one at a time</div>
+      <div class="sync-badge local" id="syncBadge"><span class="dot"></span><span id="syncText">Local only</span></div>
+    </div>
+    <div class="datebox">
+      <div class="d" id="todayDate"></div>
+      <div class="quote">"Don't even think about number two until number one is complete." — Ivy Lee, 1918</div>
+    </div>
+  </header>
+
+  <!-- POMODORO -->
+  <div class="pomodoro">
+    <div class="timer-ring">
+      <svg width="120" height="120">
+        <circle cx="60" cy="60" r="52" fill="none" stroke="#2a3038" stroke-width="8"/>
+        <circle id="ringProgress" cx="60" cy="60" r="52" fill="none" stroke="var(--accent)"
+                stroke-width="8" stroke-linecap="round"
+                stroke-dasharray="326.7" stroke-dashoffset="0"/>
+      </svg>
+      <div class="time">
+        <div class="t" id="timerDisplay">25:00</div>
+        <div class="mode" id="timerMode">Focus</div>
+      </div>
+    </div>
+    <div class="pomo-body">
+      <div class="label">Currently focusing on</div>
+      <div class="focus-on" id="focusOn">— pick task #1 or hit a focus button —</div>
+      <div class="pomo-controls">
+        <button class="primary" id="startBtn">▶ Start</button>
+        <button id="pauseBtn">⏸ Pause</button>
+        <button id="resetBtn">↺ Reset</button>
+        <button id="skipBtn">⏭ Skip</button>
+      </div>
+      <div class="pomo-modes">
+        <button data-min="25" class="active" id="m-focus">Focus 25</button>
+        <button data-min="5" id="m-short">Short 5</button>
+        <button data-min="15" id="m-long">Long 15</button>
+      </div>
+      <div class="pomo-count">Completed focus sessions today: <b id="pomoCount">0</b> · 🍅 Pomodoro technique (Francesco Cirillo, 1980s)</div>
+    </div>
+  </div>
+
+  <!-- SIX TASKS -->
+  <div class="section-title">
+    <h2>Today's Six</h2>
+    <span class="hint">drag the number to re-prioritise · only #1 (or the active task) is unlocked</span>
+  </div>
+  <div class="six" id="sixList"></div>
+
+  <!-- MASTER LIST -->
+  <div class="section-title">
+    <h2>Master List</h2>
+    <span class="hint">everything on the radar · promote ⬆ into the Six when a slot frees up</span>
+  </div>
+
+  <div class="master-add">
+    <input type="text" id="masterInput" placeholder="Add a task to the master list…">
+    <select id="masterOrg">
+      <option value="aussie">Aussie Floats</option>
+      <option value="mxt">MXTology</option>
+      <option value="floral">Floral Image</option>
+      <option value="personal">Personal</option>
+    </select>
+    <button id="masterAddBtn">Add</button>
+  </div>
+
+  <div class="filters" id="filters"></div>
+  <div class="master" id="masterList"></div>
+
+  <div class="toolbar" style="margin-top:18px; justify-content:flex-end;">
+    <button id="rolloverBtn" title="Move unfinished Six down to the master list and clear the board for a new day">🌅 New day / roll over</button>
+    <button id="exportBtn">⬇ Export backup</button>
+  </div>
+
+  <div class="footer-note">
+    Built on the <b>Ivy Lee Method</b> — devised in 1918 by productivity consultant Ivy Lee for
+    Charles M. Schwab, president of Bethlehem Steel. Schwab paid Lee $25,000 (≈ $400k today) and called it
+    the most profitable advice he ever received.<br>
+    Everything saves automatically to this browser. The 🍅 timer uses the Pomodoro Technique.
+  </div>
+
+</div>
+
+<!-- Your sync settings (edit firebase-config.js, not this file) -->
+<script src="./firebase-config.js"></script>
+
+<script>
+// ===================== DATA =====================
+const ORGS = {
+  aussie:   { name: "Aussie Floats", color: "var(--org-aussie)" },
+  mxt:      { name: "MXTology",      color: "var(--org-mxt)" },
+  floral:   { name: "Floral Image",  color: "var(--org-floral)" },
+  personal: { name: "Personal",      color: "var(--org-personal)" },
+};
+const ORG_HEX = { aussie:"#2dafe0", mxt:"#b76bff", floral:"#ff6fa5", personal:"#f5a623" };
+
+const STORE_KEY = "dailyFocus.v1";
+let state = load();
+
+function blankState() {
+  return {
+    six: [null, null, null, null, null, null], // {text, org, done}
+    master: [],   // {id, text, org}
+    activeIndex: 0,
+    pomoCount: 0,
+    pomoDate: todayKey(),
+    seq: 1,
+    updatedAt: 0,
+  };
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return seed();
+    const s = JSON.parse(raw);
+    if (s.pomoDate !== todayKey()) { s.pomoCount = 0; s.pomoDate = todayKey(); }
+    if (!Array.isArray(s.six) || s.six.length !== 6) s.six = blankState().six;
+    return s;
+  } catch (e) { return seed(); }
+}
+function seed() {
+  const s = blankState();
+  s.master = [
+    { id: s.seq++, text: "Sign off CRIB component serial numbers for AIMS", org: "aussie" },
+    { id: s.seq++, text: "Publish MXTology homepage draft & collections redirect", org: "mxt" },
+    { id: s.seq++, text: "Confirm trial day with rep Brandon", org: "floral" },
+    { id: s.seq++, text: "Book in a proper lunch break 😀", org: "personal" },
+  ];
+  return s;
+}
+function save() {
+  state.updatedAt = Date.now();
+  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  if (window.cloudPush) window.cloudPush(state);
+}
+function saveLocalOnly() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+window.__getState = () => state;
+function renderAll() { renderSix(); renderFilters(); renderMaster(); document.getElementById("pomoCount").textContent = state.pomoCount; }
+
+// ---- Sync hooks used by the Firebase layer (firebase-config.js + module below) ----
+let pendingRemote = null;
+function isEditing() { return document.activeElement && document.activeElement.isContentEditable; }
+// Apply a board that arrived from another device. Last-write-wins by updatedAt.
+window.cloudApply = function(remote) {
+  if (!remote || typeof remote !== "object") return;
+  if ((remote.updatedAt || 0) <= (state.updatedAt || 0)) return; // ours is newer/equal — ignore
+  if (isEditing()) { pendingRemote = remote; return; }            // don't yank text mid-edit
+  state = remote;
+  if (state.pomoDate !== todayKey()) { state.pomoCount = 0; state.pomoDate = todayKey(); }
+  saveLocalOnly();
+  renderAll();
+};
+document.addEventListener("focusout", () => {
+  if (pendingRemote) { const r = pendingRemote; pendingRemote = null; window.cloudApply(r); }
+});
+function todayKey() { const d = new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
+
+// ===================== SIX TASKS =====================
+const sixList = document.getElementById("sixList");
+
+function firstUnlockedIndex() {
+  // Active task = first not-done slot that has text; everything above must be done.
+  for (let i = 0; i < 6; i++) {
+    const t = state.six[i];
+    if (!t || !t.done) return i;
+  }
+  return 5;
+}
+
+function renderSix() {
+  sixList.innerHTML = "";
+  const activeIdx = firstUnlockedIndex();
+  state.activeIndex = activeIdx;
+
+  state.six.forEach((task, i) => {
+    const el = document.createElement("div");
+    el.className = "task";
+    el.draggable = false;
+    const isActive = i === activeIdx && task && !task.done;
+    const locked = i > activeIdx && (!task || !task.done);
+    if (task && task.done) el.classList.add("completed");
+    if (isActive) el.classList.add("is-active");
+    if (locked) el.classList.add("locked");
+
+    // rank (drag handle)
+    const rank = document.createElement("div");
+    rank.className = "rank";
+    rank.textContent = i + 1;
+    rank.title = "Drag to re-prioritise";
+    rank.draggable = true;
+    rank.addEventListener("dragstart", e => onSixDragStart(e, i));
+    el.appendChild(rank);
+
+    // check
+    const check = document.createElement("div");
+    check.className = "check";
+    check.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" stroke="#04220f" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    check.title = "Mark complete";
+    check.addEventListener("click", () => {
+      if (!task || !task.text.trim()) return;
+      task.done = !task.done;
+      save(); renderSix();
+    });
+    el.appendChild(check);
+
+    // text
+    const txt = document.createElement("div");
+    txt.className = "task-text";
+    txt.contentEditable = true;
+    txt.dataset.ph = "Task #" + (i+1) + "…";
+    txt.textContent = task ? task.text : "";
+    txt.addEventListener("input", () => {
+      if (!state.six[i]) state.six[i] = { text: "", org: "personal", done: false };
+      state.six[i].text = txt.textContent;
+      save();
+    });
+    txt.addEventListener("blur", renderSix);
+    el.appendChild(txt);
+
+    // actions
+    const actions = document.createElement("div");
+    actions.className = "task-actions";
+
+    if (task && task.text.trim()) {
+      const focusBtn = document.createElement("button");
+      focusBtn.className = "icon-btn focus-btn";
+      focusBtn.textContent = "🍅 focus";
+      focusBtn.title = "Load this task into the Pomodoro timer";
+      focusBtn.addEventListener("click", () => setFocus(task.text));
+      actions.appendChild(focusBtn);
+
+      const down = document.createElement("button");
+      down.className = "icon-btn";
+      down.textContent = "⬇ master";
+      down.title = "Move back to the master list";
+      down.addEventListener("click", () => {
+        state.master.unshift({ id: state.seq++, text: task.text, org: task.org || "personal" });
+        state.six[i] = null;
+        compactSix();
+        save(); renderSix(); renderMaster();
+      });
+      actions.appendChild(down);
+    }
+    el.appendChild(actions);
+
+    // drop target
+    el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("drop-target"); });
+    el.addEventListener("dragleave", () => el.classList.remove("drop-target"));
+    el.addEventListener("drop", e => onSixDrop(e, i));
+
+    sixList.appendChild(el);
+  });
+}
+
+let sixDragFrom = null;
+function onSixDragStart(e, i) { sixDragFrom = i; e.dataTransfer.effectAllowed = "move"; }
+function onSixDrop(e, to) {
+  e.preventDefault();
+  document.querySelectorAll(".task").forEach(t => t.classList.remove("drop-target"));
+  if (sixDragFrom === null || sixDragFrom === to) return;
+  const item = state.six.splice(sixDragFrom, 1)[0];
+  state.six.splice(to, 0, item);
+  while (state.six.length < 6) state.six.push(null);
+  state.six = state.six.slice(0, 6);
+  sixDragFrom = null;
+  save(); renderSix();
+}
+function compactSix() {
+  const filled = state.six.filter(Boolean);
+  while (filled.length < 6) filled.push(null);
+  state.six = filled.slice(0, 6);
+}
+
+// ===================== MASTER LIST =====================
+const masterList = document.getElementById("masterList");
+const filtersEl = document.getElementById("filters");
+let activeFilter = "all";
+
+function renderFilters() {
+  filtersEl.innerHTML = "";
+  const all = document.createElement("div");
+  all.className = "chip" + (activeFilter==="all"?" active":"");
+  all.innerHTML = '<span class="dot" style="background:var(--muted)"></span>All';
+  all.onclick = () => { activeFilter="all"; renderFilters(); renderMaster(); };
+  filtersEl.appendChild(all);
+  Object.entries(ORGS).forEach(([key, o]) => {
+    const c = document.createElement("div");
+    c.className = "chip" + (activeFilter===key?" active":"");
+    c.innerHTML = '<span class="dot" style="background:'+ORG_HEX[key]+'"></span>'+o.name;
+    c.onclick = () => { activeFilter=key; renderFilters(); renderMaster(); };
+    filtersEl.appendChild(c);
+  });
+}
+
+function emptySixSlot() { return state.six.findIndex(t => !t || !t.text || !t.text.trim()); }
+
+function renderMaster() {
+  masterList.innerHTML = "";
+  const items = state.master.filter(m => activeFilter==="all" || m.org===activeFilter);
+  if (items.length === 0) {
+    masterList.innerHTML = '<div class="empty">Nothing here'+(activeFilter!=="all"?" for this organisation":"")+'. Add a task above ↑</div>';
+    return;
+  }
+  const slotFree = emptySixSlot() !== -1;
+  items.forEach((m) => {
+    const realIdx = state.master.indexOf(m);
+    const el = document.createElement("div");
+    el.className = "m-item";
+    el.style.borderLeftColor = ORG_HEX[m.org];
+    el.draggable = true;
+    el.addEventListener("dragstart", e => { masterDragFrom = realIdx; el.classList.add("dragging"); });
+    el.addEventListener("dragend", () => el.classList.remove("dragging"));
+    el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("drop-target"); });
+    el.addEventListener("dragleave", () => el.classList.remove("drop-target"));
+    el.addEventListener("drop", e => onMasterDrop(e, realIdx));
+
+    const tag = document.createElement("div");
+    tag.className = "m-org-tag";
+    tag.textContent = ORGS[m.org].name;
+    tag.style.background = ORG_HEX[m.org] + "22";
+    tag.style.color = ORG_HEX[m.org];
+    el.appendChild(tag);
+
+    const txt = document.createElement("div");
+    txt.className = "m-text";
+    txt.contentEditable = true;
+    txt.textContent = m.text;
+    txt.addEventListener("input", () => { m.text = txt.textContent; save(); });
+    el.appendChild(txt);
+
+    const actions = document.createElement("div");
+    actions.className = "m-actions";
+
+    // org switch
+    const sel = document.createElement("select");
+    sel.style.cssText = "background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;font-size:11px;padding:4px;";
+    Object.entries(ORGS).forEach(([k,o]) => {
+      const opt = document.createElement("option");
+      opt.value = k; opt.textContent = o.name; if (k===m.org) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.onchange = () => { m.org = sel.value; save(); renderMaster(); };
+    actions.appendChild(sel);
+
+    const del = document.createElement("button");
+    del.className = "icon-btn";
+    del.textContent = "🗑";
+    del.title = "Delete";
+    del.onclick = () => { state.master.splice(realIdx,1); save(); renderMaster(); };
+    actions.appendChild(del);
+    el.appendChild(actions);
+
+    const promote = document.createElement("button");
+    promote.className = "m-promote";
+    promote.textContent = "⬆ to Six";
+    promote.disabled = !slotFree;
+    promote.title = slotFree ? "Move into the next free slot in your Six" : "Your Six are full — finish or clear one first";
+    promote.onclick = () => {
+      const slot = emptySixSlot();
+      if (slot === -1) return;
+      state.six[slot] = { text: m.text, org: m.org, done: false };
+      state.master.splice(realIdx, 1);
+      save(); renderSix(); renderMaster();
+    };
+    el.appendChild(promote);
+
+    masterList.appendChild(el);
+  });
+}
+
+let masterDragFrom = null;
+function onMasterDrop(e, to) {
+  e.preventDefault();
+  document.querySelectorAll(".m-item").forEach(t => t.classList.remove("drop-target"));
+  if (masterDragFrom === null || masterDragFrom === to) return;
+  const item = state.master.splice(masterDragFrom, 1)[0];
+  state.master.splice(to, 0, item);
+  masterDragFrom = null;
+  save(); renderMaster();
+}
+
+document.getElementById("masterAddBtn").onclick = addMaster;
+document.getElementById("masterInput").addEventListener("keydown", e => { if (e.key==="Enter") addMaster(); });
+function addMaster() {
+  const inp = document.getElementById("masterInput");
+  const org = document.getElementById("masterOrg").value;
+  const text = inp.value.trim();
+  if (!text) return;
+  state.master.unshift({ id: state.seq++, text, org });
+  inp.value = "";
+  save(); renderMaster();
+}
+
+// ===================== POMODORO =====================
+let timer = { remaining: 25*60, total: 25*60, mode: "Focus", running: false, intervalId: null };
+const CIRC = 2 * Math.PI * 52;
+document.getElementById("ringProgress").style.strokeDasharray = CIRC;
+
+function fmt(s) { const m = Math.floor(s/60); const x = s%60; return (m<10?"0":"")+m+":"+(x<10?"0":"")+x; }
+function paintTimer() {
+  document.getElementById("timerDisplay").textContent = fmt(timer.remaining);
+  document.getElementById("timerMode").textContent = timer.mode;
+  const frac = timer.total ? timer.remaining/timer.total : 0;
+  document.getElementById("ringProgress").style.strokeDashoffset = CIRC * (1 - frac);
+  const color = timer.mode === "Focus" ? "var(--accent)" : "var(--green)";
+  document.getElementById("ringProgress").style.stroke = color;
+}
+function setMode(min, label, btnId) {
+  stopTimer();
+  timer.total = min*60; timer.remaining = min*60; timer.mode = label;
+  document.querySelectorAll(".pomo-modes button").forEach(b => b.classList.remove("active"));
+  document.getElementById(btnId).classList.add("active");
+  paintTimer();
+}
+document.getElementById("m-focus").onclick = () => setMode(25,"Focus","m-focus");
+document.getElementById("m-short").onclick = () => setMode(5,"Short Break","m-short");
+document.getElementById("m-long").onclick  = () => setMode(15,"Long Break","m-long");
+
+function tick() {
+  if (timer.remaining <= 0) { finishSession(); return; }
+  timer.remaining--; paintTimer();
+}
+function startTimer() {
+  if (timer.running) return;
+  timer.running = true;
+  timer.intervalId = setInterval(tick, 1000);
+}
+function stopTimer() {
+  timer.running = false;
+  if (timer.intervalId) clearInterval(timer.intervalId);
+  timer.intervalId = null;
+}
+function finishSession() {
+  stopTimer();
+  if (timer.mode === "Focus") {
+    state.pomoCount++; state.pomoDate = todayKey(); save();
+    document.getElementById("pomoCount").textContent = state.pomoCount;
+    chime();
+    // auto-suggest a break
+    const long = state.pomoCount % 4 === 0;
+    if (long) setMode(15,"Long Break","m-long"); else setMode(5,"Short Break","m-short");
+    notify("Focus session done! 🍅", "Take a "+(long?"long":"short")+" break.");
+  } else {
+    chime();
+    setMode(25,"Focus","m-focus");
+    notify("Break over", "Back to task #" + (state.activeIndex+1) + ".");
+  }
+}
+document.getElementById("startBtn").onclick = () => { if (timer.remaining<=0) setMode(25,"Focus","m-focus"); startTimer(); };
+document.getElementById("pauseBtn").onclick = stopTimer;
+document.getElementById("resetBtn").onclick = () => { stopTimer(); timer.remaining = timer.total; paintTimer(); };
+document.getElementById("skipBtn").onclick = finishSession;
+
+function setFocus(text) {
+  document.getElementById("focusOn").textContent = text;
+  setMode(25,"Focus","m-focus");
+  startTimer();
+}
+
+function chime() {
+  try {
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    [880, 1175, 1568].forEach((f,i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = f; o.type = "sine";
+      o.connect(g); g.connect(ctx.destination);
+      const t = ctx.currentTime + i*0.16;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.25, t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t+0.4);
+      o.start(t); o.stop(t+0.4);
+    });
+  } catch(e){}
+}
+function notify(title, body) {
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "granted") new Notification(title, { body });
+  else if (Notification.permission !== "denied") Notification.requestPermission();
+}
+
+// ===================== TOOLBAR =====================
+document.getElementById("rolloverBtn").onclick = () => {
+  const unfinished = state.six.filter(t => t && t.text.trim() && !t.done);
+  if (state.six.some(t => t && t.text.trim()) &&
+      !confirm("Roll over the day?\n\nUnfinished tasks go back to the master list; completed ones are cleared.")) return;
+  unfinished.forEach(t => state.master.unshift({ id: state.seq++, text: t.text, org: t.org || "personal" }));
+  state.six = blankState().six;
+  save(); renderSix(); renderMaster();
+};
+document.getElementById("exportBtn").onclick = () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "daily-focus-backup-" + todayKey() + ".json";
+  a.click();
+};
+
+// ===================== INIT =====================
+function fmtDate() {
+  const d = new Date();
+  document.getElementById("todayDate").textContent =
+    d.toLocaleDateString(undefined, { weekday:"long", day:"numeric", month:"long" });
+}
+fmtDate();
+document.getElementById("pomoCount").textContent = state.pomoCount;
+paintTimer();
+renderSix();
+renderFilters();
+renderMaster();
+if ("Notification" in window && Notification.permission === "default") {
+  // ask politely on first interaction
+  document.addEventListener("click", () => Notification.requestPermission(), { once: true });
+}
+</script>
+
+<!-- ===================== SERVICE WORKER (offline) ===================== -->
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+}
+</script>
+
+<!-- ===================== FIREBASE SYNC ===================== -->
+<script type="module">
+const badge = document.getElementById("syncBadge");
+const badgeText = document.getElementById("syncText");
+function setBadge(cls, text) { badge.className = "sync-badge " + cls; badgeText.textContent = text; }
+
+const cfg = window.FIREBASE_CONFIG || {};
+const configured = cfg.apiKey && !String(cfg.apiKey).includes("PASTE");
+
+if (!configured) {
+  setBadge("local", "Local only — add Firebase to sync");
+} else {
+  try {
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+    const { getAuth, signInAnonymously, onAuthStateChanged } =
+      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+    const { initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+            doc, onSnapshot, setDoc } =
+      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+
+    const app = initializeApp(cfg);
+    let db;
+    try {
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+      });
+    } catch (e) {
+      const { getFirestore } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+      db = getFirestore(app);
+    }
+    const auth = getAuth(app);
+
+    const boardId = (window.SYNC_CODE || "default-board").replace(/[^\w-]/g, "_").slice(0, 120);
+    const ref = doc(db, "boards", boardId);
+
+    setBadge("local", "Connecting…");
+    await signInAnonymously(auth).catch(err => { setBadge("off", "Sign-in blocked"); throw err; });
+
+    let pushTimer = null;
+    let lastPushed = 0;
+    // Debounced push of the whole board to the cloud.
+    window.cloudPush = function(stateObj) {
+      clearTimeout(pushTimer);
+      pushTimer = setTimeout(async () => {
+        try {
+          lastPushed = stateObj.updatedAt || 0;
+          await setDoc(ref, JSON.parse(JSON.stringify(stateObj)));
+          setBadge("ok", "Synced");
+        } catch (e) { setBadge("off", "Sync error"); }
+      }, 700);
+    };
+
+    onAuthStateChanged(auth, user => {
+      if (!user) return;
+      onSnapshot(ref, { includeMetadataChanges: true }, snap => {
+        if (snap.metadata.fromCache && !snap.exists()) return;
+        const remote = snap.data();
+        const offline = snap.metadata.fromCache;
+        if (remote) {
+          if ((remote.updatedAt || 0) !== lastPushed) window.cloudApply(remote);
+        } else {
+          // No board in the cloud yet — seed it with what's on this device.
+          window.cloudPush(window.__getState ? window.__getState() : {});
+        }
+        setBadge(offline ? "local" : "ok", offline ? "Offline — will sync" : "Synced");
+      }, err => setBadge("off", "Sync error"));
+    });
+
+    window.addEventListener("online",  () => setBadge("ok", "Synced"));
+    window.addEventListener("offline", () => setBadge("local", "Offline — will sync"));
+  } catch (e) {
+    console.error("Firebase init failed:", e);
+    setBadge("off", "Sync unavailable");
+  }
+}
+</script>
+</body>
+</html>
