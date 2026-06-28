@@ -1,6 +1,6 @@
 // Daily Focus — service worker (offline support)
 // Bump CACHE when you change index.html so phones pick up the new version.
-const CACHE = "daily-focus-v4";
+const CACHE = "daily-focus-v5";
 const SDK   = "daily-focus-sdk-v1";   // separate, long-lived cache for the Firebase SDK
 const ASSETS = [
   "./",

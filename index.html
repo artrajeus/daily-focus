@@ -248,6 +248,55 @@
     border-radius: 8px; padding: 7px 12px; font-size: 12px; cursor: pointer; font-weight: 600;
   }
   .toolbar button:hover { color: var(--text); border-color: var(--accent); }
+
+  /* ===== Touch devices: hover-to-reveal doesn't exist, so always show actions ===== */
+  @media (hover: none) {
+    .task-actions, .m-actions { opacity: 1 !important; }
+  }
+
+  /* ===== Mobile / iPhone layout ===== */
+  @media (max-width: 640px) {
+    body { padding: max(16px, env(safe-area-inset-top)) 12px 64px; }
+
+    header.top { flex-direction: column; align-items: flex-start; gap: 6px; }
+    header.top h1 { font-size: 23px; }
+    .datebox { text-align: left; }
+    .datebox .quote { max-width: 100%; }
+
+    /* Pomodoro: center the ring, lay controls out as an even 2-col grid */
+    .pomodoro { gap: 16px; justify-content: center; padding: 16px; }
+    .timer-ring { margin: 0 auto; }
+    .pomo-body { min-width: 100%; }
+    .pomo-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .pomo-controls button { width: 100%; padding: 12px 8px; }
+    .pomo-modes button { padding: 10px 4px; }
+
+    .section-title { flex-direction: column; gap: 2px; }
+
+    /* Today's Six: actions always visible, dropped onto their own aligned row */
+    .task { flex-wrap: wrap; row-gap: 10px; padding: 12px; }
+    .task-text { flex: 1 1 120px; font-size: 16px; }
+    .task-actions { opacity: 1; width: 100%; justify-content: flex-end; padding-left: 46px; gap: 8px; }
+    .task-actions .icon-btn { padding: 9px 12px; font-size: 13px; background: var(--panel-2); }
+
+    /* Add-task row: input on top (full width), org + Add button beneath */
+    .master-add { flex-wrap: wrap; padding: 8px; }
+    .master-add input { flex: 1 1 100%; padding: 10px 4px; }
+    .master-add select { flex: 1; padding: 11px 8px; }
+    .master-add button { padding: 11px 18px; }
+
+    /* Master list: every card identical — tag, text, then one tidy action bar */
+    .m-item { flex-wrap: wrap; align-items: center; row-gap: 10px; padding: 12px; border-left-width: 5px; }
+    .m-org-tag { order: 1; }
+    .m-text { order: 2; flex: 1 1 100%; font-size: 16px; line-height: 1.4; }
+    .m-actions { order: 3; opacity: 1; flex: 1 1 auto; justify-content: flex-start; gap: 8px; }
+    .m-actions select { flex: 1; padding: 10px 8px; font-size: 13px; }
+    .m-actions .icon-btn { padding: 9px 12px; font-size: 15px; }
+    .m-promote { order: 4; flex: 0 0 auto; padding: 11px 16px; font-size: 13px; }
+
+    .toolbar { flex-direction: column; }
+    .toolbar button { width: 100%; padding: 12px; }
+  }
 </style>
 </head>
 <body>
