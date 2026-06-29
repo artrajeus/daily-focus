@@ -181,6 +181,9 @@
   }
   .icon-btn:hover { background: var(--panel-2); color: var(--text); }
   .icon-btn.focus-btn:hover { color: var(--gold); }
+  .icon-btn:disabled { opacity: .25; cursor: not-allowed; }
+  .move-btn { background: var(--panel-2); font-size: 12px; line-height: 1; padding: 6px 9px; }
+  .move-btn:hover:not(:disabled) { color: var(--gold); border-color: var(--gold); }
 
   .lock-note {
     font-size: 11px; color: var(--muted); padding: 2px 8px; font-style: italic;
@@ -528,10 +531,26 @@ function renderSix() {
     actions.className = "task-actions";
 
     if (task && task.text.trim()) {
+      const moveUp = document.createElement("button");
+      moveUp.className = "icon-btn move-btn";
+      moveUp.textContent = "▲";
+      moveUp.title = "Move up — higher priority";
+      moveUp.disabled = i === 0;
+      moveUp.addEventListener("click", () => moveSix(i, i - 1));
+      actions.appendChild(moveUp);
+
+      const moveDown = document.createElement("button");
+      moveDown.className = "icon-btn move-btn";
+      moveDown.textContent = "▼";
+      moveDown.title = "Move down — lower priority";
+      moveDown.disabled = i === 5;
+      moveDown.addEventListener("click", () => moveSix(i, i + 1));
+      actions.appendChild(moveDown);
+
       const focusBtn = document.createElement("button");
       focusBtn.className = "icon-btn focus-btn";
       focusBtn.textContent = "🍅 focus";
-      focusBtn.title = "Load this task into the Pomodoro timer";
+      focusBtn.title = "Start a 25-minute Pomodoro focus session on this task";
       focusBtn.addEventListener("click", () => setFocus(task.text));
       actions.appendChild(focusBtn);
 
@@ -575,6 +594,13 @@ function compactSix() {
   const filled = state.six.filter(Boolean);
   while (filled.length < 6) filled.push(null);
   state.six = filled.slice(0, 6);
+}
+function moveSix(from, to) {
+  if (to < 0 || to > 5) return;
+  const tmp = state.six[from];
+  state.six[from] = state.six[to];
+  state.six[to] = tmp;
+  save(); renderSix();
 }
 
 // ===================== MASTER LIST =====================
