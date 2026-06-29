@@ -221,16 +221,22 @@
   .m-item {
     display: flex; align-items: center; gap: 10px;
     background: var(--panel); border: 1px solid var(--line);
-    border-left-width: 4px; border-radius: 9px; padding: 10px 12px;
+    border-left-width: 5px; border-radius: 9px; padding: 11px 12px;
   }
   .m-item.dragging { opacity: .4; }
   .m-item.drop-target { border-top-color: var(--accent); box-shadow: 0 -2px 0 var(--accent); }
   .m-org-tag {
-    font-size: 10px; text-transform: uppercase; letter-spacing: .5px; font-weight: 700;
-    padding: 2px 7px; border-radius: 5px; flex-shrink: 0;
+    font-size: 10px; text-transform: uppercase; letter-spacing: .5px; font-weight: 800;
+    padding: 3px 8px; border-radius: 5px; flex-shrink: 0;
   }
-  .m-text { flex: 1; font-size: 14px; outline: none; }
-  .m-actions { display: flex; gap: 2px; opacity: 0; transition: opacity .15s; }
+  .m-text { flex: 1; font-size: 14.5px; font-weight: 600; outline: none; line-height: 1.35; }
+  .m-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .m-reorder { display: flex; gap: 4px; flex-shrink: 0; }
+  .m-orgsel {
+    background: var(--panel-2); color: var(--muted); border: 1px solid var(--line);
+    border-radius: 6px; font-size: 11px; padding: 5px; cursor: pointer;
+  }
+  .m-actions { display: flex; align-items: center; gap: 4px; opacity: 0; transition: opacity .15s; }
   .m-item:hover .m-actions { opacity: 1; }
   .m-promote {
     background: var(--gold); color: #1a1305; border: none; border-radius: 7px;
@@ -288,14 +294,15 @@
     .master-add select { flex: 1; padding: 11px 8px; }
     .master-add button { padding: 11px 18px; }
 
-    /* Master list: every card identical — tag, text, then one tidy action bar */
-    .m-item { flex-wrap: wrap; align-items: center; row-gap: 10px; padding: 12px; border-left-width: 5px; }
+    /* Master list: business tag + coloured task on line 1, controls on line 2 */
+    .m-item { flex-wrap: wrap; align-items: center; row-gap: 8px; padding: 9px 11px; border-left-width: 6px; }
     .m-org-tag { order: 1; }
-    .m-text { order: 2; flex: 1 1 100%; font-size: 16px; line-height: 1.4; }
-    .m-actions { order: 3; opacity: 1; flex: 1 1 auto; justify-content: flex-start; gap: 8px; }
-    .m-actions select { flex: 1; padding: 10px 8px; font-size: 13px; }
-    .m-actions .icon-btn { padding: 9px 12px; font-size: 15px; }
-    .m-promote { order: 4; flex: 0 0 auto; padding: 11px 16px; font-size: 13px; }
+    .m-text { order: 2; flex: 1 1 60%; font-size: 15px; line-height: 1.3; }
+    .m-controls { order: 3; flex: 1 1 100%; justify-content: space-between; gap: 6px; }
+    .m-actions { opacity: 1; gap: 6px; }
+    .m-orgsel { padding: 7px 5px; font-size: 12px; max-width: 130px; }
+    .m-actions .icon-btn, .m-reorder .icon-btn { padding: 7px 11px; font-size: 14px; }
+    .m-promote { padding: 8px 13px; font-size: 12px; }
 
     .toolbar { flex-direction: column; }
     .toolbar button { width: 100%; padding: 12px; }
@@ -634,53 +641,55 @@ function renderMaster() {
     return;
   }
   const slotFree = emptySixSlot() !== -1;
-  items.forEach((m) => {
+  items.forEach((m, vi) => {
     const realIdx = state.master.indexOf(m);
+    const color = ORG_HEX[m.org];
     const el = document.createElement("div");
     el.className = "m-item";
-    el.style.borderLeftColor = ORG_HEX[m.org];
-    el.draggable = true;
+    el.style.borderLeftColor = color;
     el.addEventListener("dragstart", e => { masterDragFrom = realIdx; el.classList.add("dragging"); });
     el.addEventListener("dragend", () => el.classList.remove("dragging"));
     el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("drop-target"); });
     el.addEventListener("dragleave", () => el.classList.remove("drop-target"));
     el.addEventListener("drop", e => onMasterDrop(e, realIdx));
 
+    // business badge ("logo on the edge")
     const tag = document.createElement("div");
     tag.className = "m-org-tag";
     tag.textContent = ORGS[m.org].name;
-    tag.style.background = ORG_HEX[m.org] + "22";
-    tag.style.color = ORG_HEX[m.org];
+    tag.style.background = color + "22";
+    tag.style.color = color;
     el.appendChild(tag);
 
+    // task text, coloured by business
     const txt = document.createElement("div");
     txt.className = "m-text";
     txt.contentEditable = true;
     txt.textContent = m.text;
+    txt.style.color = color;
     txt.addEventListener("input", () => { m.text = txt.textContent; save(); });
     el.appendChild(txt);
 
-    const actions = document.createElement("div");
-    actions.className = "m-actions";
+    // right-hand controls: reorder arrows, promote, then secondary tools
+    const controls = document.createElement("div");
+    controls.className = "m-controls";
 
-    // org switch
-    const sel = document.createElement("select");
-    sel.style.cssText = "background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;font-size:11px;padding:4px;";
-    Object.entries(ORGS).forEach(([k,o]) => {
-      const opt = document.createElement("option");
-      opt.value = k; opt.textContent = o.name; if (k===m.org) opt.selected = true;
-      sel.appendChild(opt);
-    });
-    sel.onchange = () => { m.org = sel.value; save(); renderMaster(); };
-    actions.appendChild(sel);
-
-    const del = document.createElement("button");
-    del.className = "icon-btn";
-    del.textContent = "🗑";
-    del.title = "Delete";
-    del.onclick = () => { state.master.splice(realIdx,1); save(); renderMaster(); };
-    actions.appendChild(del);
-    el.appendChild(actions);
+    const reorder = document.createElement("div");
+    reorder.className = "m-reorder";
+    const up = document.createElement("button");
+    up.className = "icon-btn move-btn";
+    up.textContent = "▲";
+    up.title = "Move up the list — higher priority";
+    up.disabled = vi === 0;
+    up.onclick = () => moveMaster(m, -1);
+    const dn = document.createElement("button");
+    dn.className = "icon-btn move-btn";
+    dn.textContent = "▼";
+    dn.title = "Move down the list";
+    dn.disabled = vi === items.length - 1;
+    dn.onclick = () => moveMaster(m, 1);
+    reorder.appendChild(up); reorder.appendChild(dn);
+    controls.appendChild(reorder);
 
     const promote = document.createElement("button");
     promote.className = "m-promote";
@@ -694,10 +703,41 @@ function renderMaster() {
       state.master.splice(realIdx, 1);
       save(); renderSix(); renderMaster();
     };
-    el.appendChild(promote);
+    controls.appendChild(promote);
 
+    const tools = document.createElement("div");
+    tools.className = "m-actions";
+    const sel = document.createElement("select");
+    sel.className = "m-orgsel";
+    sel.title = "Change business";
+    Object.entries(ORGS).forEach(([k,o]) => {
+      const opt = document.createElement("option");
+      opt.value = k; opt.textContent = o.name; if (k===m.org) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.onchange = () => { m.org = sel.value; save(); renderMaster(); };
+    tools.appendChild(sel);
+    const del = document.createElement("button");
+    del.className = "icon-btn";
+    del.textContent = "🗑";
+    del.title = "Delete";
+    del.onclick = () => { state.master.splice(realIdx,1); save(); renderMaster(); };
+    tools.appendChild(del);
+    controls.appendChild(tools);
+
+    el.appendChild(controls);
     masterList.appendChild(el);
   });
+}
+// Move a master task up/down relative to its visible neighbour (filter-aware).
+function moveMaster(m, dir) {
+  const items = state.master.filter(x => activeFilter === "all" || x.org === activeFilter);
+  const vi = items.indexOf(m);
+  const nb = items[vi + dir];
+  if (!nb) return;
+  const a = state.master.indexOf(m), b = state.master.indexOf(nb);
+  const tmp = state.master[a]; state.master[a] = state.master[b]; state.master[b] = tmp;
+  save(); renderMaster();
 }
 
 let masterDragFrom = null;
