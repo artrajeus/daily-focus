@@ -246,6 +246,64 @@
 
   .empty { color: var(--muted); font-size: 13px; padding: 16px; text-align: center; font-style: italic; }
 
+  /* ===== Empty / add slots in the Six ===== */
+  .task.slot-empty { border-style: dashed; opacity: .8; }
+  .task.slot-add { border-style: dashed; border-color: #38414d; }
+  .task.slot-add:focus-within { border-color: var(--accent); }
+  .task-text.ghost { color: #3a434f; }
+  .check-locked { border-color: #333b45; opacity: .5; cursor: not-allowed; }
+  .pull-btn { background: var(--panel-2); color: var(--accent); }
+  .pull-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .count-pill {
+    display: inline-block; background: var(--green); color: #04220f; font-size: 12px;
+    font-weight: 800; border-radius: 20px; padding: 1px 9px; vertical-align: middle; margin-left: 2px;
+  }
+
+  /* ===== Completed today list ===== */
+  .completed { display: flex; flex-direction: column; gap: 5px; }
+  .c-item {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-left-width: 5px; border-radius: 9px; padding: 8px 12px;
+  }
+  .c-tick {
+    width: 20px; height: 20px; border-radius: 50%; background: var(--green);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .c-text { flex: 1; font-size: 14px; color: var(--muted); text-decoration: line-through; }
+  .c-time { font-size: 11px; color: var(--muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .c-tools { display: flex; gap: 2px; opacity: 0; transition: opacity .15s; }
+  .c-item:hover .c-tools { opacity: 1; }
+
+  /* ===== Master picker overlay ===== */
+  .picker-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(2px);
+    display: none; align-items: flex-end; justify-content: center; z-index: 50;
+  }
+  .picker-overlay.open { display: flex; }
+  .picker-panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px 16px 0 0;
+    width: 100%; max-width: 880px; max-height: 75vh; display: flex; flex-direction: column;
+    padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  .picker-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+  .picker-title { font-size: 17px; font-weight: 700; }
+  .picker-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .picker-close {
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+    border-radius: 8px; width: 34px; height: 34px; cursor: pointer; font-size: 15px; flex-shrink: 0;
+  }
+  .picker-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+  .picker-row {
+    display: flex; align-items: center; gap: 10px; text-align: left; width: 100%;
+    background: var(--panel-2); border: 1px solid var(--line); border-left-width: 5px;
+    border-radius: 9px; padding: 12px; cursor: pointer; font-family: inherit;
+  }
+  .picker-row:hover { border-color: var(--accent); }
+  .picker-text { font-size: 15px; font-weight: 600; }
+  @media (min-width: 641px) { .picker-overlay { align-items: center; } .picker-panel { border-radius: 16px; } }
+  @media (hover: none) { .c-tools { opacity: 1; } }
+
   .footer-note {
     margin-top: 40px; text-align: center; color: var(--muted); font-size: 12px; line-height: 1.6;
   }
@@ -363,6 +421,15 @@
   </div>
   <div class="six" id="sixList"></div>
 
+  <!-- COMPLETED TODAY -->
+  <div id="completedSection" style="display:none;">
+    <div class="section-title">
+      <h2>✓ Completed today <span class="count-pill" id="completedCount">0</span></h2>
+      <span class="hint">a record of what you knocked off · ↩ puts one back</span>
+    </div>
+    <div class="completed" id="completedList"></div>
+  </div>
+
   <!-- MASTER LIST -->
   <div class="section-title">
     <h2>Master List</h2>
@@ -397,6 +464,21 @@
 
 </div>
 
+<!-- MASTER PICKER overlay -->
+<div id="pickerOverlay" class="picker-overlay">
+  <div class="picker-panel">
+    <div class="picker-head">
+      <div>
+        <div class="picker-title">Pull a task into the Six</div>
+        <div class="picker-sub">Tap one to move it up from your master list</div>
+      </div>
+      <button class="picker-close" id="pickerClose">✕</button>
+    </div>
+    <div class="picker-list" id="pickerList"></div>
+    <div class="empty" id="pickerEmpty" style="display:none;">Your master list is empty. Add tasks there first.</div>
+  </div>
+</div>
+
 <!-- Your sync settings (edit firebase-config.js, not this file) -->
 <script src="./firebase-config.js"></script>
 
@@ -415,8 +497,10 @@ let state = load();
 
 function blankState() {
   return {
-    six: [null, null, null, null, null, null], // {text, org, done}
-    master: [],   // {id, text, org}
+    six: [null, null, null, null, null, null], // {text, org}
+    master: [],       // {id, text, org}
+    completed: [],    // {text, org, completedAt}  — today's finished tasks, newest first
+    completedDate: todayKey(),
     activeIndex: 0,
     pomoCount: 0,
     pomoDate: todayKey(),
@@ -424,14 +508,31 @@ function blankState() {
     updatedAt: 0,
   };
 }
+// Keep a state object valid + fresh: ensure arrays, roll day at local midnight,
+// migrate any legacy done-in-place tasks into the completed list, compact gaps.
+function normalizeState(s) {
+  if (!s || typeof s !== "object") return s;
+  if (!Array.isArray(s.six) || s.six.length !== 6) s.six = [null,null,null,null,null,null];
+  if (!Array.isArray(s.master)) s.master = [];
+  if (!Array.isArray(s.completed)) s.completed = [];
+  const today = todayKey();
+  if (s.pomoDate !== today) { s.pomoCount = 0; s.pomoDate = today; }
+  if (s.completedDate !== today) { s.completed = []; s.completedDate = today; } // midnight reset
+  // legacy: tasks previously marked done sat in a slot — move them to completed
+  for (let i = 0; i < 6; i++) {
+    const t = s.six[i];
+    if (t && t.done) { s.completed.unshift({ text: t.text, org: t.org || "personal", completedAt: Date.now() }); s.six[i] = null; }
+  }
+  const filled = s.six.filter(Boolean);
+  while (filled.length < 6) filled.push(null);
+  s.six = filled.slice(0, 6);
+  return s;
+}
 function load() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return seed();
-    const s = JSON.parse(raw);
-    if (s.pomoDate !== todayKey()) { s.pomoCount = 0; s.pomoDate = todayKey(); }
-    if (!Array.isArray(s.six) || s.six.length !== 6) s.six = blankState().six;
-    return s;
+    return normalizeState(JSON.parse(raw));
   } catch (e) { return seed(); }
 }
 function seed() {
@@ -451,7 +552,7 @@ function save() {
 }
 function saveLocalOnly() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
 window.__getState = () => state;
-function renderAll() { renderSix(); renderFilters(); renderMaster(); document.getElementById("pomoCount").textContent = state.pomoCount; }
+function renderAll() { renderSix(); renderCompleted(); renderFilters(); renderMaster(); document.getElementById("pomoCount").textContent = state.pomoCount; }
 
 // ---- Sync hooks used by the Firebase layer (firebase-config.js + module below) ----
 let pendingRemote = null;
@@ -461,8 +562,7 @@ window.cloudApply = function(remote) {
   if (!remote || typeof remote !== "object") return;
   if ((remote.updatedAt || 0) <= (state.updatedAt || 0)) return; // ours is newer/equal — ignore
   if (isEditing()) { pendingRemote = remote; return; }            // don't yank text mid-edit
-  state = remote;
-  if (state.pomoDate !== todayKey()) { state.pomoCount = 0; state.pomoDate = todayKey(); }
+  state = normalizeState(remote);
   saveLocalOnly();
   renderAll();
 };
@@ -474,70 +574,92 @@ function todayKey() { const d = new Date(); return d.getFullYear()+"-"+(d.getMon
 // ===================== SIX TASKS =====================
 const sixList = document.getElementById("sixList");
 
-function firstUnlockedIndex() {
-  // Active task = first not-done slot that has text; everything above must be done.
-  for (let i = 0; i < 6; i++) {
-    const t = state.six[i];
-    if (!t || !t.done) return i;
-  }
-  return 5;
+function isFilled(i) { const t = state.six[i]; return !!(t && t.text && t.text.trim()); }
+function firstFilledIndex() { for (let i=0;i<6;i++) if (isFilled(i)) return i; return -1; }
+function firstEmptyIndex() { for (let i=0;i<6;i++) if (!isFilled(i)) return i; return -1; }
+
+// Complete the active task: record it, remove from the Six, free the slot.
+function completeTask(i) {
+  const t = state.six[i];
+  if (!t || !t.text || !t.text.trim()) return;
+  state.completed.unshift({ text: t.text.trim(), org: t.org || "personal", completedAt: Date.now() });
+  state.completedDate = todayKey();
+  state.six[i] = null;
+  compactSix();
+  if (typeof chime === "function") chime();
+  save(); renderAll();
 }
 
 function renderSix() {
   sixList.innerHTML = "";
-  const activeIdx = firstUnlockedIndex();
-  state.activeIndex = activeIdx;
+  const activeIdx = firstFilledIndex();
+  const addIdx = firstEmptyIndex();
+  state.activeIndex = activeIdx < 0 ? 0 : activeIdx;
 
-  state.six.forEach((task, i) => {
+  for (let i = 0; i < 6; i++) {
+    const task = state.six[i];
+    const filled = isFilled(i);
+    const isActive = filled && i === activeIdx;
+    const locked = filled && i > activeIdx;
+    const isAddSlot = !filled && i === addIdx;
+
     const el = document.createElement("div");
     el.className = "task";
-    el.draggable = false;
-    const isActive = i === activeIdx && task && !task.done;
-    const locked = i > activeIdx && (!task || !task.done);
-    if (task && task.done) el.classList.add("completed");
     if (isActive) el.classList.add("is-active");
     if (locked) el.classList.add("locked");
+    if (!filled) el.classList.add("slot-empty");
+    if (isAddSlot) el.classList.add("slot-add");
 
-    // rank (drag handle)
+    // rank
     const rank = document.createElement("div");
     rank.className = "rank";
     rank.textContent = i + 1;
-    rank.title = "Drag to re-prioritise";
-    rank.draggable = true;
-    rank.addEventListener("dragstart", e => onSixDragStart(e, i));
+    if (filled) {
+      rank.title = "Drag to re-prioritise";
+      rank.draggable = true;
+      rank.addEventListener("dragstart", e => onSixDragStart(e, i));
+    }
     el.appendChild(rank);
 
-    // check
+    // check — only the active (top) task can be ticked; lower ones are locked
     const check = document.createElement("div");
     check.className = "check";
     check.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" stroke="#04220f" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    check.title = "Mark complete";
-    check.addEventListener("click", () => {
-      if (!task || !task.text.trim()) return;
-      task.done = !task.done;
-      save(); renderSix();
-    });
+    if (isActive) {
+      check.title = "Mark done — moves it to Completed and frees the slot";
+      check.addEventListener("click", () => completeTask(i));
+    } else if (locked) {
+      check.classList.add("check-locked");
+      check.title = "Locked — finish task #" + (activeIdx + 1) + " first";
+    } else {
+      check.style.visibility = "hidden";
+    }
     el.appendChild(check);
 
     // text
     const txt = document.createElement("div");
     txt.className = "task-text";
-    txt.contentEditable = true;
-    txt.dataset.ph = "Task #" + (i+1) + "…";
-    txt.textContent = task ? task.text : "";
-    txt.addEventListener("input", () => {
-      if (!state.six[i]) state.six[i] = { text: "", org: "personal", done: false };
-      state.six[i].text = txt.textContent;
-      save();
-    });
-    txt.addEventListener("blur", renderSix);
+    if (filled || isAddSlot) {
+      txt.contentEditable = true;
+      txt.dataset.ph = isAddSlot ? "Add a task — type here, or pull from your master list →" : "Task #" + (i+1) + "…";
+      txt.textContent = task ? task.text : "";
+      txt.addEventListener("input", () => {
+        if (!state.six[i]) state.six[i] = { text: "", org: "personal" };
+        state.six[i].text = txt.textContent;
+        save();
+      });
+      txt.addEventListener("blur", renderSix);
+    } else {
+      txt.className = "task-text ghost";
+      txt.textContent = "—";
+    }
     el.appendChild(txt);
 
     // actions
     const actions = document.createElement("div");
     actions.className = "task-actions";
 
-    if (task && task.text.trim()) {
+    if (filled) {
       const moveUp = document.createElement("button");
       moveUp.className = "icon-btn move-btn";
       moveUp.textContent = "▲";
@@ -550,16 +672,18 @@ function renderSix() {
       moveDown.className = "icon-btn move-btn";
       moveDown.textContent = "▼";
       moveDown.title = "Move down — lower priority";
-      moveDown.disabled = i === 5;
+      moveDown.disabled = i >= (firstEmptyIndex() === -1 ? 5 : firstEmptyIndex() - 1);
       moveDown.addEventListener("click", () => moveSix(i, i + 1));
       actions.appendChild(moveDown);
 
-      const focusBtn = document.createElement("button");
-      focusBtn.className = "icon-btn focus-btn";
-      focusBtn.textContent = "🍅 focus";
-      focusBtn.title = "Start a 25-minute Pomodoro focus session on this task";
-      focusBtn.addEventListener("click", () => setFocus(task.text));
-      actions.appendChild(focusBtn);
+      if (isActive) {
+        const focusBtn = document.createElement("button");
+        focusBtn.className = "icon-btn focus-btn";
+        focusBtn.textContent = "🍅 focus";
+        focusBtn.title = "Start a 25-minute Pomodoro focus session on this task";
+        focusBtn.addEventListener("click", () => setFocus(task.text));
+        actions.appendChild(focusBtn);
+      }
 
       const down = document.createElement("button");
       down.className = "icon-btn";
@@ -569,19 +693,27 @@ function renderSix() {
         state.master.unshift({ id: state.seq++, text: task.text, org: task.org || "personal" });
         state.six[i] = null;
         compactSix();
-        save(); renderSix(); renderMaster();
+        save(); renderAll();
       });
       actions.appendChild(down);
+    } else if (isAddSlot) {
+      const pull = document.createElement("button");
+      pull.className = "icon-btn pull-btn";
+      pull.textContent = "⤵ from master";
+      pull.title = "Pull a task up from your master list into this slot";
+      pull.addEventListener("click", () => openMasterPicker());
+      actions.appendChild(pull);
     }
     el.appendChild(actions);
 
-    // drop target
-    el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("drop-target"); });
-    el.addEventListener("dragleave", () => el.classList.remove("drop-target"));
-    el.addEventListener("drop", e => onSixDrop(e, i));
+    if (filled) {
+      el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("drop-target"); });
+      el.addEventListener("dragleave", () => el.classList.remove("drop-target"));
+      el.addEventListener("drop", e => onSixDrop(e, i));
+    }
 
     sixList.appendChild(el);
-  });
+  }
 }
 
 let sixDragFrom = null;
@@ -608,6 +740,117 @@ function moveSix(from, to) {
   state.six[from] = state.six[to];
   state.six[to] = tmp;
   save(); renderSix();
+}
+
+// ===================== COMPLETED TODAY =====================
+const completedSection = document.getElementById("completedSection");
+const completedList = document.getElementById("completedList");
+
+function fmtTime(ts) {
+  try { return new Date(ts).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }); }
+  catch (e) { return ""; }
+}
+
+function renderCompleted() {
+  const n = state.completed.length;
+  document.getElementById("completedCount").textContent = n;
+  completedSection.style.display = n ? "block" : "none";
+  completedList.innerHTML = "";
+  state.completed.forEach((c, idx) => {
+    const color = ORG_HEX[c.org] || ORG_HEX.personal;
+    const el = document.createElement("div");
+    el.className = "c-item";
+    el.style.borderLeftColor = color;
+
+    const tick = document.createElement("div");
+    tick.className = "c-tick";
+    tick.innerHTML = '<svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" stroke="#04220f" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    el.appendChild(tick);
+
+    const tag = document.createElement("div");
+    tag.className = "m-org-tag";
+    tag.textContent = ORGS[c.org] ? ORGS[c.org].name : "Personal";
+    tag.style.background = color + "22"; tag.style.color = color;
+    el.appendChild(tag);
+
+    const txt = document.createElement("div");
+    txt.className = "c-text";
+    txt.textContent = c.text;
+    el.appendChild(txt);
+
+    const time = document.createElement("div");
+    time.className = "c-time";
+    time.textContent = c.completedAt ? fmtTime(c.completedAt) : "";
+    el.appendChild(time);
+
+    const tools = document.createElement("div");
+    tools.className = "c-tools";
+    const undo = document.createElement("button");
+    undo.className = "icon-btn";
+    undo.textContent = "↩";
+    undo.title = "Not done after all — put it back in the Six";
+    undo.onclick = () => restoreCompleted(idx);
+    tools.appendChild(undo);
+    const del = document.createElement("button");
+    del.className = "icon-btn";
+    del.textContent = "🗑";
+    del.title = "Remove from the record";
+    del.onclick = () => { state.completed.splice(idx, 1); save(); renderCompleted(); };
+    tools.appendChild(del);
+    el.appendChild(tools);
+
+    completedList.appendChild(el);
+  });
+}
+
+function restoreCompleted(idx) {
+  const slot = emptySixSlot();
+  if (slot === -1) { alert("Your Six are full — free a slot before restoring."); return; }
+  const c = state.completed[idx];
+  state.six[slot] = { text: c.text, org: c.org };
+  state.completed.splice(idx, 1);
+  compactSix();
+  save(); renderAll();
+}
+
+// ===================== MASTER PICKER (fill a freed slot) =====================
+function openMasterPicker() {
+  const overlay = document.getElementById("pickerOverlay");
+  const list = document.getElementById("pickerList");
+  const empty = document.getElementById("pickerEmpty");
+  list.innerHTML = "";
+  if (state.master.length === 0) {
+    empty.style.display = "block";
+  } else {
+    empty.style.display = "none";
+    state.master.forEach((m) => {
+      const color = ORG_HEX[m.org] || ORG_HEX.personal;
+      const row = document.createElement("button");
+      row.className = "picker-row";
+      row.style.borderLeftColor = color;
+      const tag = document.createElement("span");
+      tag.className = "m-org-tag";
+      tag.textContent = ORGS[m.org] ? ORGS[m.org].name : "Personal";
+      tag.style.background = color + "22"; tag.style.color = color;
+      const t = document.createElement("span");
+      t.className = "picker-text"; t.textContent = m.text; t.style.color = color;
+      row.appendChild(tag); row.appendChild(t);
+      row.onclick = () => insertFromMaster(m);
+      list.appendChild(row);
+    });
+  }
+  overlay.classList.add("open");
+}
+function closeMasterPicker() { document.getElementById("pickerOverlay").classList.remove("open"); }
+function insertFromMaster(m) {
+  const slot = emptySixSlot();
+  if (slot === -1) { closeMasterPicker(); return; }
+  state.six[slot] = { text: m.text, org: m.org };
+  const mi = state.master.indexOf(m);
+  if (mi !== -1) state.master.splice(mi, 1);
+  compactSix();
+  save(); renderAll();
+  closeMasterPicker();
 }
 
 // ===================== MASTER LIST =====================
@@ -852,13 +1095,20 @@ function notify(title, body) {
 
 // ===================== TOOLBAR =====================
 document.getElementById("rolloverBtn").onclick = () => {
-  const unfinished = state.six.filter(t => t && t.text.trim() && !t.done);
-  if (state.six.some(t => t && t.text.trim()) &&
-      !confirm("Roll over the day?\n\nUnfinished tasks go back to the master list; completed ones are cleared.")) return;
+  const unfinished = state.six.filter(t => t && t.text && t.text.trim());
+  if ((unfinished.length || state.completed.length) &&
+      !confirm("Start a new day?\n\nUnfinished tasks go back to the master list, and today's Completed record is cleared.")) return;
   unfinished.forEach(t => state.master.unshift({ id: state.seq++, text: t.text, org: t.org || "personal" }));
   state.six = blankState().six;
-  save(); renderSix(); renderMaster();
+  state.completed = [];
+  state.completedDate = todayKey();
+  save(); renderAll();
 };
+// Master picker close handlers
+document.getElementById("pickerClose").onclick = closeMasterPicker;
+document.getElementById("pickerOverlay").addEventListener("click", (e) => {
+  if (e.target.id === "pickerOverlay") closeMasterPicker();
+});
 document.getElementById("exportBtn").onclick = () => {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
@@ -876,9 +1126,8 @@ function fmtDate() {
 fmtDate();
 document.getElementById("pomoCount").textContent = state.pomoCount;
 paintTimer();
-renderSix();
-renderFilters();
-renderMaster();
+saveLocalOnly(); // persist any migration/date-roll from normalizeState()
+renderAll();
 if ("Notification" in window && Notification.permission === "default") {
   // ask politely on first interaction
   document.addEventListener("click", () => Notification.requestPermission(), { once: true });
