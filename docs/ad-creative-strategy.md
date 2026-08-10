@@ -120,7 +120,9 @@ classifications coming out of the scorer have been trusted for a few weeks.
 
 **`creative-scout`** — **built**, see `agents/creative-scout.md`. The Tuesday angle-finder. Mines five sources — the account's own winning ad content, reviews and support language, creator outtakes, competitor creative, and the product itself — and returns ranked angles, each with a verbatim quote as evidence, the cell it fills, and a duplicate check against what's already running. Every candidate must fit the one-line angle template or it gets dropped, which is what stops it returning ten restyles of the current winner. Reads only; proposes, never writes creative. It inherits the medic's cell classifications, so sanity-check those against reality before trusting its prioritisation.
 
-**`creative-producer`** — last. Takes approved briefs, batch-generates the AI pillar, reframes to every placement, and returns assets checked against their briefs, flagging drift rather than silently shipping it. Runs Wednesday. The only one that writes anything, and even then only assets — never ad-account changes.
+**`creative-producer`** — **built**, see `agents/creative-producer.md`. The Wednesday builder. Takes approved briefs, batch-generates the AI pillar, reframes to every placement, then checks every asset against its brief across eight criteria and grades it pass / flagged / rejected. Files everything by cell so the library is usable. The only one that makes anything, and even then only assets — it never publishes, posts, or reaches an ad account, and it won't invent an angle to patch a thin brief. Its real job is catching generator drift: an asset that's well-made, attractive and has quietly wandered off the angle will pass a casual look, and that's the main reason the AI pillar underperforms.
+
+**The chain and its gates:** medic scores → scout proposes with evidence → **human approves briefs** → producer builds and flags → **human launches**. Two human gates, deliberately. No agent in this set launches an ad.
 
 ---
 
