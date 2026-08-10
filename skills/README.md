@@ -8,9 +8,13 @@ or from claude.ai.
 |---|---|
 | [`ad-creative-engine`](ad-creative-engine/) | Full-funnel paid-social creative system: the 15-cell creative board, spend-concentration scoring, fatigue detection, creator squad, AI production, weekly flywheel. |
 
-Related: [`docs/ad-creative-strategy.md`](../docs/ad-creative-strategy.md) — where
-this skill came from, what was deliberately left out, and how it wires into the
-rest of the skillset and the weekly operating cadence.
+Related:
+- [`agents/`](../agents/) — subagents that run parts of these skills on a
+  cadence. [`account-medic`](../agents/account-medic.md) is the weekly scorer for
+  `ad-creative-engine`.
+- [`docs/ad-creative-strategy.md`](../docs/ad-creative-strategy.md) — where this
+  skill came from, what was deliberately left out, and how it wires into the rest
+  of the skillset and the weekly operating cadence.
 
 ## Installing a skill
 

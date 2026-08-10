@@ -112,15 +112,15 @@ Brand-agnostic and connector-optional, matching `ecommerce-blog-writer`. Degrade
 
 ## 5. Proposed agents
 
-Three subagents, each mapping to a stage of the weekly loop:
+Three subagents, each mapping to a stage of the weekly loop. Build order is
+read-only first: nothing that can write to an ad account gets built until the
+classifications coming out of the scorer have been trusted for a few weeks.
 
-**`creative-scout`** — read-only. Pulls top-performing ad content, review text, support/email language and competitor creative; returns a ranked list of candidate angles with the evidence for each and the cell it fills. Runs Tuesday.
+**`account-medic`** — **built**, see `agents/account-medic.md`. The Monday scorer. Classifies every live ad into a cell, produces the board and the three numbers, runs the fatigue test, makes the fatigue-vs-saturation call, and returns at most five ordered actions plus a scoreboard row. Reads only — recommendations go to a human, never to an ad account. Highest value and lowest risk of the three, which is why it went first.
 
-**`creative-producer`** — takes approved briefs, batch-generates the AI pillar, reframes to every placement, and returns assets checked against their briefs (flagging drift rather than silently shipping it). Runs Wednesday.
+**`creative-scout`** — next. Read-only. Pulls top-performing ad content, review text, support/email language and competitor creative; returns a ranked list of candidate angles, each with its evidence and the cell it fills. Runs Tuesday. Build once the medic's cell classifications have been sanity-checked against reality for a few weeks — the scout inherits them.
 
-**`account-medic`** — the scorer. Classifies every live ad into a cell, produces the board and the three numbers, runs the fatigue test, and returns at most five ordered actions. Runs Monday. This is the one to build first — it's the highest value and the least risky, because it only reads.
-
-Build them in that reverse order: medic, then scout, then producer. Nothing that writes to an ad account gets built until the read-only ones have been running for a few weeks and we trust their classifications.
+**`creative-producer`** — last. Takes approved briefs, batch-generates the AI pillar, reframes to every placement, and returns assets checked against their briefs, flagging drift rather than silently shipping it. Runs Wednesday. The only one that writes anything, and even then only assets — never ad-account changes.
 
 ---
 
